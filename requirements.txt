@@ -1,0 +1,5 @@
+#core
+selenium==4.17.2
+
+#.env
+python-decouple==3.8
