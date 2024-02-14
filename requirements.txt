@@ -1,5 +1,12 @@
 #core
 selenium==4.17.2
 
+# ml
+tensorflow==2.15.0
+tensorboard==2.15.0
+mltu==1.1.8
+tf2onnx==1.16.1
+librosa==0.10.1
+
 #.env
 python-decouple==3.8
