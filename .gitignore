@@ -3,3 +3,4 @@ venv/
 .gitignore
 Datasets/
 Models/
+__pycache__/

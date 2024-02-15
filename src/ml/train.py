@@ -76,7 +76,7 @@ model = train_model(
 
 # Compile the model and print summary
 model.compile(
-    optimizer=tf.keras.optimizers.Adam(learning_rate=configs.learning_rate), 
+    optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=configs.learning_rate), 
     loss=CTCloss(), 
     metrics=[CWERMetric(padding_token=len(configs.vocab))],
     run_eagerly=False
