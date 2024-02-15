@@ -1,58 +1,93 @@
-import time
-
 from decouple import config
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from singleton import SingletonClass
+
+from utils.converters import Base64ToPngConverter
 
 
 class WebDriverSingleton(SingletonClass):
-    def __init__(self):
+    def __init__(self) -> None:
         self.driver = webdriver.Chrome()
-        self.driver.get(config("AEVISFORMS_URL"))
-        self.driver.implicitly_wait(5)
 
-    def quit_driver(self):
+        self.driver.get(config("AEVISFORMS_URL"))
+        self.driver.implicitly_wait(config("IMPLICITLY_WAIT"))
+
+    def quit_driver(self) -> None:
         self.driver.quit()
 
-class FormFiller(WebDriverSingleton):
-    def fill_country(self, country_name):
-        country_selector = self.driver.find_element(by=By.NAME, value="CountryCodeShow")
-        country_select_object = Select(country_selector)
-        country_select_object.select_by_visible_text(country_name)
 
-    def fill_city(self, city_name):
-        city_selector = self.driver.find_element(by=By.NAME, value="PostCodeShow")
-        city_selected = Select(city_selector)
-        city_selected.select_by_visible_text(city_name)
+class FormFiller:
+    def __init__(self, driver):
+        self.driver = driver
 
-    def submit_form(self):
-        submit = self.driver.find_element(by=By.NAME, value="Submit")
-        submit.click()
+    def fill_field(self, field_name: str, value: str) -> None:
+        field_selector = self.driver.find_element(by=By.NAME, value=field_name)
+        field_select_object = Select(field_selector)
+        field_select_object.select_by_visible_text(value)
 
-    def fill_form(self, country_name, city_name):
-        self.fill_country(country_name)
-        self.fill_city(city_name)
-        self.submit_form()
+    def submit_form(self) -> None:
+        submit_button = self.driver.find_element(by=By.NAME, value="Submit")
+        submit_button.click()
+
+
+class CaptchaBreaker:
+    def __init__(self, driver):
+        self.driver = driver
+
+    def get_captcha_image_source(self, xpath):
+        try:
+            captcha_image_source = self.driver.find_element(
+                by=By.XPATH, value=xpath
+            ).get_attribute("src")
+        except:
+            captcha_image_source = None
+        return captcha_image_source
+
+    def solve_captcha(self, captcha_source):
+        print(captcha_source)
+
+    def determine_captcha_type(self, xpath1, xpath2):
+        captcha_source1 = self.get_captcha_image_source(xpath1)
+        captcha_source2 = self.get_captcha_image_source(xpath2)
+
+        if captcha_source1:
+            self.solve_captcha(captcha_source1)
+        elif captcha_source2:
+            self.solve_captcha(captcha_source2)
+            print("Redirected to the second type of page.")
+        else:
+            print("Not redirected to any captcha page.")
+
 
 class MainApplication:
     def run(self):
-        form_filler_instance = FormFiller()
-        try:
-            form_filler_instance.fill_form()
-            time.sleep(8)
-        finally:
-            form_filler_instance.quit_driver()
+        with WebDriverSingleton() as driver_instance:
+            form_filler = FormFiller(driver_instance.driver)
+            captcha_breaker = CaptchaBreaker(driver_instance.driver)
+
+            try:
+                form_filler.fill_field("CountryCodeShow", "KYRGYZSTAN")
+                form_filler.fill_field("PostCodeShow", "BISHKEK")
+                form_filler.submit_form()
+
+                WebDriverWait(driver_instance.driver, 10).until(
+                    EC.presence_of_element_located(
+                        (By.XPATH, "//*[@id='frmconinput_CaptchaImage']")
+                    )
+                    or EC.presence_of_element_located((By.XPATH, "/html/body/img"))
+                )
+
+                captcha_breaker.determine_captcha_type(
+                    "//*[@id='frmconinput_CaptchaImage']", "/html/body/img"
+                )
+            finally:
+                driver_instance.quit_driver()
+
 
 if __name__ == "__main__":
     app = MainApplication()
-    form_filler_instance = FormFiller()
-
-    try:
-        form_filler_instance.fill_country("KYRGYZSTAN")
-        form_filler_instance.fill_city("BISHKEK")
-        form_filler_instance.submit_form()
-        time.sleep(8)
-    finally:
-        form_filler_instance.quit_driver()
+    app.run()
