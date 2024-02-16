@@ -1,23 +1,9 @@
-from decouple import config
-from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from singleton import SingletonClass
 
-from utils.converters import Base64ToPngConverter
-
-
-class WebDriverSingleton(SingletonClass):
-    def __init__(self) -> None:
-        self.driver = webdriver.Chrome()
-
-        self.driver.get(config("AEVISFORMS_URL"))
-        self.driver.implicitly_wait(config("IMPLICITLY_WAIT"))
-
-    def quit_driver(self) -> None:
-        self.driver.quit()
+from driver import WebDriverSingleton
 
 
 class FormFiller:
@@ -47,18 +33,34 @@ class CaptchaBreaker:
             captcha_image_source = None
         return captcha_image_source
 
-    def solve_captcha(self, captcha_source):
-        print(captcha_source)
+    def solve_captcha(self, captcha_source, input_locator):
+        #solved_word = captcha_breaker(captcha_source)
 
-    def determine_captcha_type(self, xpath1, xpath2):
+        input_field = self.driver.find_element(
+            by=input_locator["by"], value=input_locator["value"]
+        )
+        #print("HEREEEEEEEEEEEEEEE", solved_word)
+        #input_field.send_keys(solved_word)
+
+    def determine_captcha_type(self, xpath1, xpath2, input_locator1, input_locator2):
         captcha_source1 = self.get_captcha_image_source(xpath1)
         captcha_source2 = self.get_captcha_image_source(xpath2)
 
         if captcha_source1:
-            self.solve_captcha(captcha_source1)
+            self.solve_captcha(captcha_source1, input_locator1)
+            submit_captcha = self.driver.find_element(
+                by=By.XPATH,
+                value="/html/body/form/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr/td[3]/input[2]",
+            )
+            submit_captcha.click()
+            print("Solved captcha on the first type of page.")
         elif captcha_source2:
-            self.solve_captcha(captcha_source2)
-            print("Redirected to the second type of page.")
+            self.solve_captcha(captcha_source2, input_locator2)
+            submit_captcha = self.driver.find_element(
+                by=By.XPATH, value="/html/body/button"
+            )
+            submit_captcha.click()
+            print("Solved captcha on the second type of page.")
         else:
             print("Not redirected to any captcha page.")
 
@@ -82,7 +84,13 @@ class MainApplication:
                 )
 
                 captcha_breaker.determine_captcha_type(
-                    "//*[@id='frmconinput_CaptchaImage']", "/html/body/img"
+                    "//*[@id='frmconinput_CaptchaImage']",
+                    "/html/body/img",
+                    {
+                        "by": By.XPATH,
+                        "value": "/html/body/form/table/tbody/tr/td/table/tbody/tr/td/table/tbody/tr[2]/td/table/tbody/tr/td[3]/input[1]",
+                    },
+                    {"by": By.XPATH, "value": "/html/body/input"},
                 )
             finally:
                 driver_instance.quit_driver()
